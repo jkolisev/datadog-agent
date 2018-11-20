@@ -22,6 +22,8 @@ import (
 )
 
 func (h *Handler) setCallback(ip string, err error) {
+	h.m.Lock()
+	defer h.m.Unlock()
 	h.leaderStatusCallback = func() (string, error) { return ip, err }
 }
 
@@ -106,6 +108,7 @@ func TestUpdateLeaderIP(t *testing.T) {
 // TestHandlerRun tests the full lifecycle of the handling/dispatching
 // lifecycle: unknown -> follower -> leader -> follower -> leader -> stop
 func TestHandlerRun(t *testing.T) {
+	dummyT := &testing.T{}
 	ac := &mockedPluggableAutoConfig{}
 	ac.Test(t)
 
@@ -186,7 +189,8 @@ func TestHandlerRun(t *testing.T) {
 	})
 	assertTrueBeforeTimeout(t, 10*time.Millisecond, 500*time.Millisecond, func() bool {
 		// Test whether we're connected to the AD
-		return len(ac.Calls) == 1
+		return ac.AssertNumberOfCalls(dummyT, "AddScheduler", 1)
+
 	})
 	ac.AssertExpectations(t)
 
@@ -231,7 +235,7 @@ func TestHandlerRun(t *testing.T) {
 	})
 	assertTrueBeforeTimeout(t, 10*time.Millisecond, 500*time.Millisecond, func() bool {
 		// RemoveScheduler is called
-		return len(ac.Calls) == 2
+		return ac.AssertNumberOfCalls(dummyT, "RemoveScheduler", 1)
 	})
 	ac.AssertExpectations(t)
 
@@ -249,9 +253,8 @@ func TestHandlerRun(t *testing.T) {
 	h.PostStatus("dummy", types.NodeStatus{})
 	assertTrueBeforeTimeout(t, 10*time.Millisecond, 500*time.Millisecond, func() bool {
 		// Test whether we're connected to the AD
-		return len(ac.Calls) == 3
+		return ac.AssertNumberOfCalls(dummyT, "AddScheduler", 2)
 	})
-	ac.AssertNumberOfCalls(t, "AddScheduler", 2)
 
 	//
 	// Leader -> stop
@@ -268,7 +271,6 @@ func TestHandlerRun(t *testing.T) {
 
 	assertTrueBeforeTimeout(t, 10*time.Millisecond, 500*time.Millisecond, func() bool {
 		// RemoveScheduler is called
-		return len(ac.Calls) == 4
+		return ac.AssertNumberOfCalls(dummyT, "RemoveScheduler", 2)
 	})
-	ac.AssertNumberOfCalls(t, "RemoveScheduler", 2)
 }

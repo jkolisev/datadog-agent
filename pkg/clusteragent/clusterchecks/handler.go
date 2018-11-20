@@ -85,15 +85,15 @@ func NewHandler(ac pluggableAutoConfig) (*Handler, error) {
 // Run is the main goroutine for the handler. It has to
 // be called in a goroutine with a cancellable context.
 func (h *Handler) Run(ctx context.Context) {
+	h.m.Lock()
 	if h.leaderStatusCallback != nil {
 		go h.leaderWatch(ctx)
 	} else {
 		// With no leader election enabled, we assume only one DCA is running
-		h.m.Lock()
 		h.state = leader
-		h.m.Unlock()
 		h.leadershipChan <- leader
 	}
+	h.m.Unlock()
 
 	for {
 		// Follower / unknown
@@ -173,11 +173,11 @@ func (h *Handler) runDispatch(ctx context.Context) {
 	// Run dispatcher cleanup loop - blocking until context is cancelled
 	h.dispatcher.run(ctx)
 
-	// Churn the dispatcher and restart fresh
-	h.autoconfig.RemoveScheduler(schedulerName)
 	h.m.Lock()
 	defer h.m.Unlock()
+	// Churn the dispatcher and restart fresh
 	h.dispatcher = newDispatcher()
+	h.autoconfig.RemoveScheduler(schedulerName)
 }
 
 func (h *Handler) leaderWatch(ctx context.Context) {
@@ -208,13 +208,13 @@ func (h *Handler) leaderWatch(ctx context.Context) {
 //   - true: becoming leader
 //   - false: lost leadership
 func (h *Handler) updateLeaderIP(firstRun bool) error {
+	h.m.Lock()
+	defer h.m.Unlock()
+
 	newIP, err := h.leaderStatusCallback()
 	if err != nil {
 		return err
 	}
-
-	h.m.Lock()
-	defer h.m.Unlock()
 
 	// Fast exit if no change
 	if !firstRun && (newIP == h.leaderIP) {
