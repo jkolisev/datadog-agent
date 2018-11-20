@@ -171,7 +171,7 @@ func (h *Handler) runDispatch(ctx context.Context) {
 	h.autoconfig.AddScheduler(schedulerName, h.dispatcher, true)
 
 	// Run dispatcher cleanup loop - blocking until context is cancelled
-	h.dispatcher.cleanupLoop(ctx)
+	h.dispatcher.run(ctx)
 
 	// Churn the dispatcher and restart fresh
 	h.autoconfig.RemoveScheduler(schedulerName)

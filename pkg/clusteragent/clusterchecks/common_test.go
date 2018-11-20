@@ -102,6 +102,13 @@ func assertTrueBeforeTimeout(t *testing.T, frequency, timeout time.Duration, con
 	var ranOnce bool
 
 	go func() {
+		// Try once immediately
+		if condition() {
+			ok <- struct{}{}
+			return
+		}
+
+		// Retry until timeout
 		checkTicker := time.NewTicker(frequency)
 		defer checkTicker.Stop()
 		for {
