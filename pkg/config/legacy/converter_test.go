@@ -211,18 +211,84 @@ func TestConverter(t *testing.T) {
 	require.NoError(err)
 	err = FromAgentConfig(cfg)
 	require.NoError(err)
+	c := config.Datadog
 
-	require.Equal("http://user:password@my-proxy.com:3128", config.Datadog.GetString("proxy.http"))
-	require.Equal("http://user:password@my-proxy.com:3128", config.Datadog.GetString("proxy.https"))
-	require.True(config.Datadog.GetBool("hostname_fqdn"))
-	require.Equal("staging", config.Datadog.GetString("apm_config.env"))
-	require.Equal(1, config.Datadog.GetInt("apm_config.extra_sample_rate"))
-	require.Equal(10., config.Datadog.GetFloat64("apm_config.max_traces_per_second"))
-	require.Equal(8126, config.Datadog.GetInt("apm_config.receiver_port"))
+	require.Equal("http://user:password@my-proxy.com:3128", c.GetString("proxy.http"))
+	require.Equal("http://user:password@my-proxy.com:3128", c.GetString("proxy.https"))
+	require.True(c.GetBool("hostname_fqdn"))
+	require.Equal("staging", c.GetString("apm_config.env"))
+	require.Equal(1, c.GetInt("apm_config.extra_sample_rate"))
+	require.Equal(10., c.GetFloat64("apm_config.max_traces_per_second"))
+	require.Equal(8126, c.GetInt("apm_config.receiver_port"))
 	require.Equal([]string{
 		"GET|POST /healthcheck",
 		"GET /V1",
-	}, config.Datadog.GetStringSlice("apm_config.ignore_resources"))
+	}, c.GetStringSlice("apm_config.ignore_resources"))
+
+	require.True(c.IsSet("apm_config.enabled"))
+	require.False(c.GetBool("apm_config.enabled"))
+	require.Equal("mymachine.mydomain", c.GetString("hostname"))
+	require.True(c.IsSet("api_key"))
+	require.Equal("localhost", c.GetString("bind_host"))
+	require.True(c.IsSet("apm_config.apm_non_local_traffic"))
+	require.False(c.GetBool("apm_config.apm_non_local_traffic"))
+	require.Equal(8125, c.GetInt("dogstatsd_port"))
+	require.Equal("INFO", c.GetString("log_level"))
+	require.True(c.IsSet("skip_ssl_validation"))
+	require.False(c.GetBool("skip_ssl_validation"))
+
+	// trace.api.api_key (not in trace agent)
+	require.Equal("1234", c.GetString("apm_config.api_key"))
+	// trace.api.endpoint
+	require.Equal("http://ip.url", c.GetString("apm_config.apm_dd_url"))
+	// trace.config.env
+	require.Equal("staging", c.GetString("apm_config.env"))
+	// trace.config.log_level (not in trace agent)
+	require.Equal("warn", c.GetString("apm_config.log_level"))
+	// trace.config.log_file
+	require.Equal("/path/to/file", c.GetString("apm_config.log_file"))
+	// trace.concentrator.extra_aggregators (not in trace)
+	require.Equal("a,b,c", c.GetString("apm_config.extra_aggregators"))
+	// trace.config.log_throttling (not in trace agent)
+	require.True(c.GetBool("apm_config.log_throttling"))
+	// trace.concentrator.bucket_size_seconds (not in trace)
+	require.Equal(5, c.GetInt("apm_config.bucket_size_seconds"))
+	// trace.receiver.receiver_port
+	require.Equal(8126, c.GetInt("apm_config.receiver_port"))
+	// trace.receiver.connection_limit
+	require.Equal(2000, c.GetInt("apm_config.connection_limit"))
+	// trace.receiver.timeout (not in trace agent)
+	require.Equal(4, c.GetInt("apm_config.receiver_timeout"))
+	// trace.watchdog.max_connections
+	require.Equal(40, c.GetInt("apm_config.max_connections"))
+	// trace.watchdog.check_delay_seconds (not in trace)
+	require.Equal(5, c.GetInt("apm_config.watchdog_check_delay"))
+	// trace.sampler.extra_sample_rate
+	require.Equal(1., c.GetFloat64("apm_config.extra_sample_rate"))
+	// trace.sampler.max_traces_per_second
+	require.Equal(10., c.GetFloat64("apm_config.max_traces_per_second"))
+	// trace.sampler.max_events_per_second
+	require.Equal(10.4, c.GetFloat64("apm_config.max_events_per_second"))
+	// trace.watchdog.max_memory
+	require.Equal(1234.5, c.GetFloat64("apm_config.max_memory"))
+	// trace.watchdog.max_cpu_percent
+	require.Equal(85.4, c.GetFloat64("apm_config.max_cpu_percent"))
+	// trace.analyzed_rate_by_service
+	rateByService := make(map[string]float64)
+	err = config.Datadog.UnmarshalKey("apm_config.analyzed_rate_by_service", &rateByService)
+	require.NoError(err)
+	require.Equal(map[string]float64{
+		"service1": 1.1,
+		"service2": 1.2,
+	}, rateByService)
+	// trace.analyzed_spans
+	rateBySpan := make(map[string]float64)
+	err = config.Datadog.UnmarshalKey("apm_config.analyzed_spans", &rateBySpan)
+	require.NoError(err)
+	require.Equal(map[string]float64{
+		"service3|op3": 1.3,
+		"service4|op4": 1.4,
+	}, rateBySpan)
 }
 
 func TestExtractURLAPIKeys(t *testing.T) {
